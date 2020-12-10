@@ -12,9 +12,7 @@ import java.util.List;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
@@ -24,6 +22,7 @@ import org.w3c.dom.Element;
 
 import com.josefrvera.decathlon.models.entities.Athlete;
 import com.josefrvera.decathlon.models.entities.Discipline;
+import com.josefrvera.decathlon.utils.Constants;
 
 public class AthleteServiceImpl implements IAthleteService {
 
@@ -73,7 +72,7 @@ public class AthleteServiceImpl implements IAthleteService {
 		     	   
 			        athlete.appendChild(discipline);
 			        
-			        discipline.setAttribute("name", DisciplineServiceImpl.eventName[discRow.getOrder()]);
+			        discipline.setAttribute("name", Constants.eventName[discRow.getOrder()]);
 			        discipline.setAttribute("performance", discRow.getPerformance().toString());
 			        discipline.setAttribute("points", discRow.getPoints().toString());
 		        }
@@ -83,14 +82,17 @@ public class AthleteServiceImpl implements IAthleteService {
 	        TransformerFactory transformerFactory = TransformerFactory.newInstance();
             Transformer transformer = transformerFactory.newTransformer();
             DOMSource domSource = new DOMSource(document);
-            StreamResult streamResult = new StreamResult(new File(file.toString()));
- 
-            transformer.transform(domSource, streamResult);
+            try {
+	            StreamResult streamResult = new StreamResult(new File(file.toString()));
+	            transformer.transform(domSource, streamResult);
+            } catch (Exception e) {
+            	System.out.println(Constants.invalidXMLOutput);
+            	return null;
+            }
 	
-		} catch (ParserConfigurationException pce) {
-	        pce.printStackTrace();
-	    } catch (TransformerException tfe) {
-	        tfe.printStackTrace();
+		} catch (Exception e) {
+	    	System.out.println(Constants.unhandledXMLOutput + e.getMessage());
+	    	return null;
 	    }
 		
 		
@@ -107,8 +109,20 @@ public class AthleteServiceImpl implements IAthleteService {
 		
 		Path pathToFile = Paths.get(file.toString());
 		
-		try (BufferedReader br = Files.newBufferedReader(pathToFile, StandardCharsets.US_ASCII)) { 
+		
+		BufferedReader br=null;
+		try 
+		{
+			br = Files.newBufferedReader(pathToFile, StandardCharsets.US_ASCII);
+		
+		} catch (IOException e) {
+			System.out.println(Constants.invalidCSVInput);
+			return null;
+		}
+		
+		try {
 			String rawLine = br.readLine(); 
+			
 			while (rawLine != null && rawLine.length()>0) {
 				String[] line = rawLine.split(";");
 				athlete = new Athlete();
@@ -119,7 +133,7 @@ public class AthleteServiceImpl implements IAthleteService {
 					discipline = new Discipline();
 					discipline.setOrder(i);
 					discipline.setPerformance(line[i]);
-					discipline.setPoints(DisciplineServiceImpl.qualify(i, discipline.getPerformance()));
+					discipline.setPoints(Constants.qualify(i, discipline.getPerformance()));
 					athletePoints += discipline.getPoints();
 					disciplines.add(discipline);
 				}
@@ -129,9 +143,11 @@ public class AthleteServiceImpl implements IAthleteService {
 				
 				rawLine = br.readLine(); 
 			}
-		} catch (IOException ioe) {
-            ioe.printStackTrace();
-        }
+		} catch (Throwable e) {
+			System.out.println(Constants.invalidCSVFormat + e.getMessage());
+			return null;
+		}
+		
 		return athletes;
 	}
 	

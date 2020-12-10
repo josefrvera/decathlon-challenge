@@ -7,84 +7,104 @@ import java.util.List;
 import com.josefrvera.decathlon.models.entities.Athlete;
 import com.josefrvera.decathlon.services.AthleteServiceImpl;
 import com.josefrvera.decathlon.services.IAthleteService;
+import com.josefrvera.decathlon.utils.Constants;
 
-/**
- * Hello world!
- *
- */
 public class DecathlonApp 
 {
 	IAthleteService athleteService;
 
 	public static void main(String[] args) {
+		String input="";
+		String inputData="";
+		String output="";
+		String outputData="";
 		
-		String input = "CSV";
-		String inputData = "src/main/resources/results.csv";
-		String output = "XML";
-		String outputData = "src/main/resources/output/results.xml";
 		try {
+			//Tries to get parameters from call args
 			input = args[0];
 			inputData = args[1];
 			output = args[2];
 			outputData = args[3];
+			
 		} catch (Exception e) {
-			System.out.println("You should use the following parameters: \n"
+			System.out.println("Loading default parameters parameters: \n"
 					+ "CSV src/resources/results.csv XML src/resources/output/results.xml");
-		} finally {
 			
-			if(!input.equals("CSV")) {
-				System.out.println("The received input is not yet implemented \n"
-						+ "Try CSV");
-				System.exit(0);
-			}	
+			//Sets default parameters
+			input = "CSV";
+			inputData = "src/main/resources/results.csv";
+			output = "XML";
+			outputData = "src/main/resources/output/results.xml";
+		
+		} 
 			
-			if(!output.equals("XML")) {
-				System.out.println("The received output is not yet implemented \n"
-						+ "Try XML");
-				System.exit(0);
-			}
+			//Checks implemented input and output types
+			if(!Constants.implementedInputTypes.contains(input)) {
+				System.out.println(Constants.notImplementedInputTypeMessage);
+				System.out.println(Constants.exitError);
+				return;
+			} 
+			if(!Constants.implementedOutputTypes.contains(output)) {
+				System.out.println(Constants.notImplementedOutputTypeMessage);
+				System.out.println(Constants.exitError);
+				return;
+			} 
 				
-			
 			IAthleteService athleteService = new AthleteServiceImpl();
+			
+			//Loads list according to input parameters
 			List<Athlete> athletes = athleteService.importData(input, inputData);
 			
-			for (Athlete a : athletes) {
-				System.out.println(a.getName() + ": " + a.getTotalPoints());
+			if (athletes == null) {
+				System.out.println(Constants.exitError);
+				return;
 			}
 			
-			Collections.sort(athletes, Collections.reverseOrder());
+			//Orders the list and assigns final position
+			try {
+				Collections.sort(athletes, Collections.reverseOrder());
+				athletes = addPosition(athletes);
+			} catch (Exception e) {
+				System.out.println(Constants.unhandledOrder + e.getMessage());
+			}
 			
-			athletes = addPosition(athletes);
-			
-			String salida = athleteService.exportData(output, outputData, athletes).toString();
+			//Exports data according to output parameters
+			Object salida = athleteService.exportData(output, outputData, athletes);
 		    
-			for (Athlete a : athletes) {
-				System.out.println(a.getPrintedOrder() + ": " + a.getName() + " con " + a.getTotalPoints());
-			}
-			System.out.println(salida);
-		}
+			if (salida == null)
+				System.out.println(Constants.exitError);
+			else
+				System.out.println(Constants.exitOK);
+			
+		
 		
 	}
 
-	private static List<Athlete> addPosition(List<Athlete> athletes) {
-		Athlete[] myArray = new Athlete[athletes.size()];
-	    athletes.toArray(myArray);
+	private static List<Athlete> addPosition(List<Athlete> athletes) throws Exception {
+		// Converts array in order to check the following rows for even scores  
+		Athlete[] athleteArray = new Athlete[athletes.size()];
+	    athletes.toArray(athleteArray);
 		Integer position;
+		// Will store all the positions with score equal to the current record 
 		String sharedPosition = "";
 		
 	    for (int i = 0; i<athletes.size(); i++) {
 	    	position = i+1;
+	    	// Uses "-" at beginning and end to exclude parcial coincidences, will be cleaned afterwards
+	    	// if the string already cointains the position, does not check following rows, it's already done
 	    	if (!sharedPosition.contains("-" + position.toString() + "-")) {
 		    	sharedPosition = "-" + position.toString() + "-";
 		    	for(int j=i+1; 
-		    			j<athletes.size() && myArray[i].getTotalPoints().intValue()==myArray[j].getTotalPoints().intValue();
+		    			j<athletes.size() && athleteArray[i].getTotalPoints().intValue()==athleteArray[j].getTotalPoints().intValue();
 		    			j++ ) {
 		    		position = j+1;
 		    		sharedPosition = sharedPosition + position.toString() + "-";
 		    	}
 	    	}
-	    	myArray[i].setPrintedOrder(sharedPosition.substring(1, sharedPosition.length()-1));
+	    	// Cleans the "-" at the beginning and end
+	    	athleteArray[i].setPrintedOrder(sharedPosition.substring(1, sharedPosition.length()-1));
 	    }
-		return Arrays.asList(myArray);
+	    // Converts back to List
+		return Arrays.asList(athleteArray);
 	}
 }
